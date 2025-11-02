@@ -1,0 +1,9 @@
+__pycache__/
+*.pkl
+*.json
+*.csv
+*.log
+.env
+.DS_Store
+.vscode/
+.idea/
