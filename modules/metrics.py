@@ -105,7 +105,7 @@ def calculate_metrics(data):
     # 9. Lifestyle composite score & CVD risk reduction
     metrics['Lifestyle_score'] = calculate_lifestyle_score(data)
     # CVD risk prediction (ML-based)
-    metrics['CVD_risk'] = predict_cvd_risk(data)
+    metrics['CVD_risk'] = predict_cvd_risk(data, 'models/cvd_model.pkl')
     
     # 10. Additional flags
     metrics['Sunlight_min_avg'] = data.get('Sunlight_exposure_min_per_day')
