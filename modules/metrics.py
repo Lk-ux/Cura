@@ -102,10 +102,6 @@ def estimate_cvd_risk(data):
     
     return risk
 
-# Example usage
-risk = estimate_cvd_risk_extended(data)
-print(f"Estimated 10-year CVD risk: {risk:.1f}%")
-
 
 def calculate_metrics(data):
     metrics = {}
