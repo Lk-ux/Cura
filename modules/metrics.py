@@ -1,10 +1,111 @@
 import statistics
 from modules.scoring import calculate_lifestyle_score
-from modules.cvd_model import predict_cvd_risk
 
 # =========================================
 # MODULE 2: Metric Calculations (Enhanced)
 # =========================================
+def estimate_cvd_risk(data):
+    """
+    Estimate CVD risk using multiple health and lifestyle factors.
+    
+    Parameters:
+    - data: dict containing personal, clinical, and lifestyle information
+    
+    Returns:
+    - risk: float, estimated risk percentage (0–100)
+    """
+    risk = 0.0
+    
+    # Age
+    age = data.get("Age", 30)
+    risk += max(age - 30, 0) * 0.5  # modest increase per year over 30
+    
+    # Gender
+    if data.get("Gender", "Female").lower() == "male":
+        risk += 5
+    
+    # BMI
+    height_m = data.get("Height_cm", 170) / 100
+    weight_kg = data.get("Weight_kg", 70)
+    bmi = weight_kg / (height_m ** 2)
+    if bmi >= 30:
+        risk += 5
+    elif bmi >= 25:
+        risk += 2
+    
+    # Blood pressure
+    sbp = data.get("Systolic_BP", 120)
+    dbp = data.get("Diastolic_BP", 80)
+    if sbp >= 140 or dbp >= 90:
+        risk += 5
+    elif sbp >= 120 or dbp >= 80:
+        risk += 2
+    
+    # Lipids
+    hdl = data.get("HDL_mg_dl", 50)
+    ldl = data.get("LDL_mg_dl", 100)
+    triglycerides = data.get("Triglycerides_mg_dl", 150)
+    if hdl < 40:
+        risk += 3
+    if ldl >= 160:
+        risk += 5
+    elif ldl >= 130:
+        risk += 2
+    if triglycerides >= 200:
+        risk += 2
+    
+    # Blood sugar / diabetes
+    glucose = data.get("Fasting_Glucose_mg_dl", 100)
+    hba1c = data.get("HbA1c_percent", 5.0)
+    if glucose >= 126 or hba1c >= 6.5:
+        risk += 5
+    elif glucose >= 100 or hba1c >= 5.7:
+        risk += 2
+    
+    # Smoking
+    cigarettes = data.get("Cigarettes", 0)
+    if cigarettes > 0:
+        risk += 5
+    
+    # Alcohol
+    alcohol = data.get("Alcohol_drinks", 0)
+    if alcohol >= 7:  # heavy drinking
+        risk += 3
+    
+    # Physical activity
+    activity_min = data.get("Physical_activity_min", 0)
+    if activity_min < 150:  # less than recommended 150 min/week
+        risk += 2
+    
+    # Sleep
+    sleep_hours = data.get("Sleep_hours", 7)
+    if sleep_hours < 6 or sleep_hours > 9:
+        risk += 1
+    
+    # Diet quality (fruits & vegetables)
+    fruits = data.get("Fruits", 0)
+    vegetables = data.get("Vegetables", 0)
+    if fruits + vegetables < 5:
+        risk += 2
+    
+    # Stress
+    stress = data.get("Stress_level", 5)
+    risk += max(0, (stress - 5) * 0.5)  # higher stress slightly increases risk
+    
+    # Sedentary behavior
+    screen_hours = data.get("Screen_hours", 5)
+    if screen_hours > 8:
+        risk += 1
+    
+    # Cap risk at 100%
+    risk = min(risk, 100)
+    
+    return risk
+
+# Example usage
+risk = estimate_cvd_risk_extended(data)
+print(f"Estimated 10-year CVD risk: {risk:.1f}%")
+
 
 def calculate_metrics(data):
     metrics = {}
@@ -105,7 +206,7 @@ def calculate_metrics(data):
     # 9. Lifestyle composite score & CVD risk reduction
     metrics['Lifestyle_score'] = calculate_lifestyle_score(data)
     # CVD risk prediction (ML-based)
-    metrics['CVD_risk'] = predict_cvd_risk(data, 'models/cvd_model.pkl')
+    metrics['CVD_risk'] = estimate_cvd_risk(data)
     
     # 10. Additional flags
     metrics['Sunlight_min_avg'] = data.get('Sunlight_exposure_min_per_day')
