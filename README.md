@@ -7,13 +7,12 @@ An intelligent health analytics system built in Python that:
 - Visualizes lifestyle balance via interactive Plotly dashboards.
 
 ## 🚀 Features
-- Modular design (Data Collection, Metrics, ML Prediction, Visualization)
+- Modular design (Data Collection, Metrics, Visualization)
 - Evidence-based scoring formulas from WHO / AHA / NCBI data
-- ML-powered risk prediction using open-source datasets
 - Auto-saving health history for longitudinal tracking
 
 ## 🧠 Technologies Used
-`Python`, `XGBoost`, `scikit-learn`, `pandas`, `Plotly`, `Matplotlib`
+`Python`, `pandas`, `Plotly`, `Matplotlib`
 
 ## 🧩 Usage
 1. Clone the repo:
