@@ -3,7 +3,7 @@
 An intelligent health analytics system built in Python that:
 - Collects user lifestyle and biometric data.
 - Computes evidence-based health metrics (BMI, WHtR, sleep quality, etc.).
-- Predicts **Cardiovascular Disease (CVD)** risk using an **XGBoost ML model**.
+- Predicts **Cardiovascular Disease (CVD)** risk.
 - Visualizes lifestyle balance via interactive Plotly dashboards.
 
 ## 🚀 Features
