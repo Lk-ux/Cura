@@ -4,13 +4,12 @@ import json
 import math
 from pathlib import Path
 
+
 """Loads parameters from data/framingham_params.json and computes risk
 for three example cases: Healthy, Average, and Unhealthy.
 
 Source: D’Agostino RB Sr et al., Circulation 2008;117:743–753.
 """
-
-
 # ----------------------------------------------------------------------
 # Core computation
 # ----------------------------------------------------------------------
@@ -157,7 +156,6 @@ def calculate_metrics(data):
     # 7. Diet quality
     fv_avg = data.get('Fruits') + data.get('Vegetables')
     metrics['Diet_FV_servings_avg'] = round(fv_avg, 1)
-    
     if fv_avg >= 10:
         metrics['Diet_quality'] = "Excellent"
     elif fv_avg >= 7:
