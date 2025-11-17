@@ -138,5 +138,5 @@ def plot_health_dashboard(data, metrics):
         )
     )
 
-    fig.write_html("health_dashboard.html", auto_open=True)
+    fig.show(renderer="browser")
 

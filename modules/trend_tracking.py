@@ -1,7 +1,10 @@
 import pandas as pd
 import plotly.express as px
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
+
 
 # =========================================
 # MODULE 5: Trend Tracking
@@ -28,49 +31,75 @@ def load_history(filename="health_history.json"):
         print("No previous health data found.")
         return pd.DataFrame()
 
+
 # =========================================
 # MODULE 5A: Trend Plotting
 # =========================================
 def plot_progress(df):
     """
-    Display time trends for Lifestyle Score, BMI, Sleep, and Activity.
+    Display multi-metric trends for health & lifestyle data.
+    Metrics: Lifestyle Score, BMI, Sleep, Physical Activity, Diet, Water, Stress, Screen hours, CVD risk.
     """
     if df.empty:
         print("No data to visualize progress.")
         return
 
-    # Ensure consistent datatypes
-    df['Lifestyle_score'] = pd.to_numeric(df.get('Lifestyle_score', 0), errors='coerce')
-    df['BMI'] = pd.to_numeric(df.get('BMI', 0), errors='coerce')
-    df['Sleep_hours_per_night'] = pd.to_numeric(df.get('Sleep_hours_per_night', 0), errors='coerce')
-    df['Physical_Activity_min_per_week'] = pd.to_numeric(df.get('Physical_Activity_min_per_week', 0), errors='coerce')
+    # Ensure numeric types
+    metrics_to_numeric = [
+        'Lifestyle_score', 'BMI', 'Sleep_hours_per_night', 'Physical_Activity_min_per_week',
+        'Diet_FV_servings_avg', 'Water_glasses', 'Stress_level', 'Screen_hours', 'CVD_risk'
+    ]
+    for col in metrics_to_numeric:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df.get(col, 0), errors='coerce')
 
-    # Melt into long form for easier multi-line plotting
-    plot_df = df[['Timestamp','Lifestyle_score','BMI','Sleep_hours_per_night','Physical_Activity_min_per_week']] \
-        .rename(columns={
-            'Lifestyle_score': 'Lifestyle Score',
-            'BMI': 'BMI',
-            'Sleep_hours_per_night': 'Sleep (h/night)',
-            'Physical_Activity_min_per_week': 'Exercise (min/wk)'
-        })
-    plot_df = plot_df.melt(id_vars='Timestamp', var_name='Metric', value_name='Value')
-
-    fig = px.line(
-        plot_df,
-        x='Timestamp', y='Value', color='Metric',
-        markers=True,
-        title='Health & Lifestyle Progress Over Time',
-        template='plotly_white'
+    # Create subplots
+    fig = make_subplots(
+        rows=3, cols=1,
+        shared_xaxes=True,
+        subplot_titles=("Vitals & Body Metrics", "Lifestyle & Daily Habits", "Risk & Scores")
     )
-    fig.update_traces(line=dict(width=2))
+
+    # --- Row 1: Vitals & Body ---
+    if 'BMI' in df.columns:
+        fig.add_trace(go.Scatter(x=df['Timestamp'], y=df['BMI'], mode='lines+markers', name='BMI'), row=1, col=1)
+        # healthy BMI band
+        fig.add_hrect(y0=18.5, y1=24.9, fillcolor="green", opacity=0.1, line_width=0, row=1, col=1)
+
+    # --- Row 2: Lifestyle & Daily Habits ---
+    lifestyle_metrics = {
+        'Sleep_hours_per_night': ('Sleep (h/night)', 7, 9),
+        'Physical_Activity_min_per_week': ('Exercise (min/wk)', 150, None),
+        'Diet_FV_servings_avg': ('Fruits+Veg (servings/day)', 5, None),
+        'Water_glasses': ('Water intake (glasses/day)', 8, None),
+        'Stress_level': ('Stress level', 0, 5),
+        'Screen_hours': ('Screen hours/day', 0, 8)
+    }
+    for col, (label, low, high) in lifestyle_metrics.items():
+        if col in df.columns:
+            fig.add_trace(go.Scatter(x=df['Timestamp'], y=df[col], mode='lines+markers', name=label), row=2, col=1)
+            if low is not None and high is not None:
+                fig.add_hrect(y0=low, y1=high, fillcolor="green", opacity=0.05, line_width=0, row=2, col=1)
+
+    # --- Row 3: Risk & Scores ---
+    if 'Lifestyle_score' in df.columns:
+        fig.add_trace(go.Scatter(x=df['Timestamp'], y=df['Lifestyle_score'], mode='lines+markers', name='Lifestyle Score'), row=3, col=1)
+    if 'CVD_risk' in df.columns:
+        fig.add_trace(go.Scatter(x=df['Timestamp'], y=df['CVD_risk'], mode='lines+markers', name='Estimated CVD Risk'), row=3, col=1)
+        fig.add_hrect(y0=0, y1=5, fillcolor="green", opacity=0.05, line_width=0, row=3, col=1)
+        fig.add_hrect(y0=20, y1=100, fillcolor="red", opacity=0.05, line_width=0, row=3, col=1)
+
+    # Layout
     fig.update_layout(
-        legend_title_text='Metric',
-        xaxis_title='Date',
-        yaxis_title='Value',
-        hovermode='x unified',
-        height=500
+        height=900, width=1000,
+        title_text="Health & Lifestyle Progress Over Time",
+        hovermode="x unified",
+        template="plotly_white"
     )
-    fig.show()
+    fig.update_xaxes(title_text="Date")
+    fig.show(renderer="browser")
+
+
 
 # =========================================
 # MODULE 5B: Weekly Summary
