@@ -116,8 +116,8 @@ def weekly_summary(df):
     summary = df.groupby('Week').agg({
         'Lifestyle_score': 'mean',
         'BMI': 'mean',
-        'Physical_Activity_min_per_week': 'mean',
-        'Sleep_hours_per_night': 'mean'
+        'Physical_activity_min': lambda x: x.mean() * 7,
+        'Sleep_hours_avg': 'mean'
     }).round(2)
 
     print("\n--- Weekly Health Summary ---")

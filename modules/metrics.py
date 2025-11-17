@@ -1,106 +1,82 @@
 import statistics
 from modules.scoring import calculate_lifestyle_score
+import json
+import math
+from pathlib import Path
 
-# =========================================
-# MODULE 2: Metric Calculations (Enhanced)
-# =========================================
-def estimate_cvd_risk(data):
-    """
-    Estimate CVD risk using multiple health and lifestyle factors.
-    
-    Parameters:
-    - data: dict containing personal, clinical, and lifestyle information
-    
-    Returns:
-    - risk: float, estimated risk percentage (0–100)
-    """
-    risk = 0.0
-    
-    # Age
-    age = data.get("Age", 30)
-    risk += max(age - 30, 0) * 0.5  # modest increase per year over 30
-    
-    # Gender
-    if data.get("Gender", "Female").lower() == "male":
-        risk += 5
-    
-    # BMI
-    height_m = data.get("Height_cm", 170) / 100
-    weight_kg = data.get("Weight_kg", 70)
-    bmi = weight_kg / (height_m ** 2)
-    if bmi >= 30:
-        risk += 5
-    elif bmi >= 25:
-        risk += 2
-    
-    # Blood pressure
-    sbp = data.get("Systolic_BP", 120)
-    dbp = data.get("Diastolic_BP", 80)
-    if sbp >= 140 or dbp >= 90:
-        risk += 5
-    elif sbp >= 120 or dbp >= 80:
-        risk += 2
-    
-    # Lipids
-    hdl = data.get("HDL_mg_dl", 50)
-    ldl = data.get("LDL_mg_dl", 100)
-    triglycerides = data.get("Triglycerides_mg_dl", 150)
-    if hdl < 40:
-        risk += 3
-    if ldl >= 160:
-        risk += 5
-    elif ldl >= 130:
-        risk += 2
-    if triglycerides >= 200:
-        risk += 2
-    
-    # Blood sugar / diabetes
-    glucose = data.get("Fasting_Glucose_mg_dl", 100)
-    hba1c = data.get("HbA1c_percent", 5.0)
-    if glucose >= 126 or hba1c >= 6.5:
-        risk += 5
-    elif glucose >= 100 or hba1c >= 5.7:
-        risk += 2
-    
-    # Smoking
-    cigarettes = data.get("Cigarettes", 0)
-    if cigarettes > 0:
-        risk += 5
-    
-    # Alcohol
-    alcohol = data.get("Alcohol_drinks", 0)
-    if alcohol >= 7:  # heavy drinking
-        risk += 3
-    
-    # Physical activity
-    activity_min = data.get("Physical_activity_min", 0)
-    if activity_min < 150:  # less than recommended 150 min/week
-        risk += 2
-    
-    # Sleep
-    sleep_hours = data.get("Sleep_hours", 7)
-    if sleep_hours < 6 or sleep_hours > 9:
-        risk += 1
-    
-    # Diet quality (fruits & vegetables)
-    fruits = data.get("Fruits", 0)
-    vegetables = data.get("Vegetables", 0)
-    if fruits + vegetables < 5:
-        risk += 2
-    
-    # Stress
-    stress = data.get("Stress_level", 5)
-    risk += max(0, (stress - 5) * 0.5)  # higher stress slightly increases risk
-    
-    # Sedentary behavior
-    screen_hours = data.get("Screen_hours", 5)
-    if screen_hours > 8:
-        risk += 1
-    
-    # Cap risk at 100%
-    risk = min(risk, 100)
-    
-    return risk
+"""Loads parameters from data/framingham_params.json and computes risk
+for three example cases: Healthy, Average, and Unhealthy.
+
+Source: D’Agostino RB Sr et al., Circulation 2008;117:743–753.
+"""
+
+
+# ----------------------------------------------------------------------
+# Core computation
+# ----------------------------------------------------------------------
+def compute_framingham_risk(user):
+    # Path to the current file (modules/metrics.py)
+    current_dir = Path(__file__).parent
+
+    # Go to parent -> then into data/
+    PARAM_PATH = current_dir.parent / "data" / "framingham_params.json"
+
+    with open(PARAM_PATH, "r") as f:
+        FRAMINGHAM_PARAMS = json.load(f)
+
+        
+    """Compute 10-year CVD risk using Framingham equations (2008)."""
+
+    sex = user.get("Gender", "Male").lower()
+    sbp = user["Systolic_BP"]
+    treated = user.get("BP_Treated", False)
+    smoker = 1 if user.get("Cigarettes", 0) > 0 else 0
+    diabetes = 1 if (
+        user.get("Fasting_Glucose_mg_dl", 0) >= 126
+        or user.get("HbA1c_percent", 0) >= 6.5
+    ) else 0
+
+    # Derive lipid or BMI model choice
+    use_lipid = all(
+        k in user for k in ["HDL_mg_dl", "LDL_mg_dl", "Triglycerides_mg_dl"]
+    )
+
+    # Derive variables
+    age = user["Age"]
+    if use_lipid:
+        hdl = user["HDL_mg_dl"]
+        ldl = user["LDL_mg_dl"]
+        tg = user["Triglycerides_mg_dl"]
+        total_chol = ldl + hdl + tg / 5.0  # Friedewald estimate
+    else:
+        height_m = user["Height_cm"] / 100
+        bmi = user["Weight_kg"] / (height_m**2)
+
+    model_type = "lipid" if use_lipid else "bmi"
+    params = FRAMINGHAM_PARAMS[sex][model_type]
+    coeff = params["coefficients"]
+    s0 = params["baseline_survival"]
+    mean_xb = params["mean_xbeta"]
+
+    # Compute log-transformed predictor sum
+    xb = 0.0
+    xb += coeff["age"] * math.log(age)
+
+    if use_lipid:
+        xb += coeff["total_chol"] * math.log(total_chol)
+        xb += coeff["hdl_chol"] * math.log(hdl)
+    else:
+        xb += coeff["bmi"] * math.log(bmi)
+
+    sbp_term = coeff["sbp_treated"] if treated else coeff["sbp_untreated"]
+    xb += sbp_term * math.log(sbp)
+    xb += coeff["smoker"] * smoker
+    xb += coeff["diabetes"] * diabetes
+
+    # Compute final risk
+    risk = 1 - (s0 ** math.exp(xb - mean_xb))
+
+    return risk * 100
 
 
 def calculate_metrics(data):
@@ -142,7 +118,6 @@ def calculate_metrics(data):
         metrics['BP_category'] = "Hypertension Stage 1"
     else:
         metrics['BP_category'] = "Hypertension Stage 2 or higher"
-    # simple continuous risk score
     metrics['BP_risk_score'] = round(max(0, (sbp - 120) / 20 + (dbp - 80) / 10), 2)
 
     # 4. Resting Heart Rate risk
@@ -154,12 +129,10 @@ def calculate_metrics(data):
         metrics['Heart_Rate_Risk'] = "Moderate"
     else:
         metrics['Heart_Rate_Risk'] = "High"
-    # estimate relative increase in mortality risk: +17% per +10 bpm above baseline ~70 bpm
     rr_increment = max(0, rhr - 70) / 10
     metrics['Estimated_RR_increment_%'] = round(rr_increment * 17, 1)
 
     # 5. Sleep metrics
-    # We assume data includes average sleep hours and optionally full daily records.
     sleep_hrs = data.get('Sleep_hours')
     metrics['Sleep_hours_avg'] = sleep_hrs
     if 7 <= sleep_hrs <= 9:
@@ -169,7 +142,6 @@ def calculate_metrics(data):
     else:
         metrics['Sleep_quality'] = "Excessive"
 
-    # If daily records exist: compute sleep variability
     daily = data.get('Daily_records')
     if daily:
         sleep_list = [day['Sleep_hours'] for day in daily]
@@ -177,14 +149,15 @@ def calculate_metrics(data):
     else:
         metrics['Sleep_std_dev'] = None
 
-    # 6. Sedentary behaviour (screen time)
+    # 6. Sedentary behaviour
     screen_avg = data.get('Screen_hours')
     metrics['Screen_hours_avg'] = screen_avg
-    metrics['Sedentary_risk_flag'] = screen_avg > 10  # flag if >10h/day
+    metrics['Sedentary_risk_flag'] = screen_avg > 10
 
-    # 7. Diet quality derived metric
+    # 7. Diet quality
     fv_avg = data.get('Fruits') + data.get('Vegetables')
     metrics['Diet_FV_servings_avg'] = round(fv_avg, 1)
+    
     if fv_avg >= 10:
         metrics['Diet_quality'] = "Excellent"
     elif fv_avg >= 7:
@@ -194,16 +167,15 @@ def calculate_metrics(data):
     else:
         metrics['Diet_quality'] = "Poor"
 
-    # 8. Hydration sufficiency
+    # 8. Hydration
     water_avg = data.get('Water_glasses')
     metrics['Water_glasses_avg'] = water_avg
     metrics['Hydration_flag'] = water_avg < 8
 
-    # 9. Lifestyle composite score & CVD risk reduction
+    # 9. Lifestyle score & CVD risk
     metrics['Lifestyle_score'] = calculate_lifestyle_score(data)
-    # CVD risk prediction (ML-based)
-    metrics['CVD_risk'] = estimate_cvd_risk(data)
-    
+    metrics['CVD_risk'] = compute_framingham_risk(data)
+
     # 10. Additional flags
     metrics['Sunlight_min_avg'] = data.get('Sunlight_exposure_min_per_day')
     metrics['Caffeine_cups_per_day'] = data.get('Caffeine_cups_per_day')
