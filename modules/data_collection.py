@@ -1,8 +1,88 @@
 import statistics
 
 # =========================================
-# MODULE 1: Data Collection (Enhanced)
+# MODULE 1: Data Collection 
 # =========================================
+def get_meal_list(meal_name):
+    """
+    Collect a list of foods for a single meal.
+    Example return:
+    [
+        {"item": "egg", "quantity": 2},
+        {"item": "roti", "quantity": 1}
+    ]
+    """
+
+    print(f"\n🍽️  Enter items for {meal_name} (press Enter with no item to stop)")
+
+    meal_items = []
+    prev_item = None
+    prev_qty = 1
+
+    while True:
+        item = input("Food item: ").strip().lower()
+
+        # Stop meal entry
+        if item == "":
+            break
+
+        # Reuse previous entry
+        if item == "same" and prev_item:
+            item = prev_item
+            qty = prev_qty
+        else:
+            # Validate quantity
+            qty = input("Quantity: ").strip()
+            try:
+                qty = int(qty)
+                if qty <= 0:
+                    print("⚠️ Quantity must be positive.")
+                    continue
+            except ValueError:
+                print("⚠️ Enter a valid whole number.")
+                continue
+
+        meal_items.append({"item": item, "quantity": qty})
+        prev_item, prev_qty = item, qty
+
+    return meal_items
+
+def ask_daily_meals(days=7):
+    """
+    Asks the user to enter breakfast, lunch, dinner for each day.
+    Allows reusing the previous day's meals.
+    Returns:
+      - average meals (flattened)
+      - full meal logs per day
+    """
+
+    print(f"\nLet's record your meals for {days} days (to improve nutrition accuracy).")
+    print("Tip: Type 'same' to reuse the last food item. Press Enter on 'Food item' to stop a meal.")
+
+    all_days = []
+    prev_day_meals = {}
+
+    for day in range(1, days + 1):
+        print(f"\n📅  Day {day} — Meal Logging")
+
+        day_meals = {}
+
+        for meal_name in ["Breakfast", "Lunch", "Dinner"]:
+            reuse = input(f"Reuse yesterday's {meal_name.lower()}? (y/N): ").lower().strip()
+            if reuse == "y" and meal_name in prev_day_meals:
+                day_meals[meal_name] = prev_day_meals[meal_name].copy()
+                print(f"✔️ Reused {meal_name.lower()} from yesterday.")
+                continue
+
+            day_meals[meal_name] = get_meal_list(meal_name)
+
+        all_days.append(day_meals)
+        prev_day_meals = day_meals  # allow reuse tomorrow
+
+    # Flatten meals to daily average data
+    # Summarization stays in nutrition module — here we only collect raw logs
+    return all_days
+
 
 def get_valid_number(prompt, min_val=None, max_val=None, allow_blank=False):
     """
@@ -29,7 +109,7 @@ def get_valid_int(prompt, min_val=None, max_val=None, allow_blank=False):
     return int(val) if val is not None else None
 
 
-def ask_daily_routine(days=7):
+def ask_daily_routine(days=1):
     """
     Ask for daily lifestyle info for several days and compute averages.
     This increases accuracy over one-time self-estimates.
@@ -73,7 +153,7 @@ def ask_daily_routine(days=7):
     return averages, daily_records
 
 
-def ask_questions(days_to_log=7):
+def ask_questions(days_to_log=1):
     """
     Collect physical, metabolic, and lifestyle data with robust validation.
     """
@@ -106,6 +186,11 @@ def ask_questions(days_to_log=7):
     data['Days_logged'] = days_to_log
     data['Daily_records'] = full_routine
 
+    # --- Daily Nutrition Logging (Multi-day Meals) ---
+    print("\nNow let's record your meals for better nutrition insights.")
+    meal_logs = ask_daily_meals(days_to_log)
+    data['Meal_logs'] = meal_logs
+
     # --- Additional Wellness Questions ---
     print("\nAdditional questions:")
     data['Occupation_type'] = input("Occupation type (Sedentary / Moderate / Active): ").capitalize()
@@ -116,4 +201,18 @@ def ask_questions(days_to_log=7):
     data['Perceived_health_score'] = get_valid_int("How would you rate your overall health (1-10)? ", 1, 10)
 
     print("\n✅ Data entry complete.")
+
+    # Prepare a single-day average style structure for nutrition module
+    # Take the last day's meals as representative (or compute your own logic)
+    if meal_logs:
+        last_day = meal_logs[-1]
+        data['meals'] = [
+            last_day.get("Breakfast", []),
+            last_day.get("Lunch", []),
+            last_day.get("Dinner", [])
+        ]
+
     return data
+
+
+

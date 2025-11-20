@@ -3,6 +3,7 @@ from modules.metrics import calculate_metrics
 from modules.report import generate_report
 from utils.file_io import save_data
 from modules.trend_tracking import load_history, plot_progress, weekly_summary
+from modules.nutrition import analyze_meal, summarize_day, hydration_recommendation
 
 # =========================================
 # MAIN PROGRAM
@@ -13,7 +14,7 @@ def main():
 
     # 1. Collect user input
     user_data = ask_questions()
-
+    
     # 2. Calculate metrics
     metrics = calculate_metrics(user_data)
     
